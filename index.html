@@ -1,1 +1,220 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PacketStack ― TCP/IP 階層＆パケットシミュレータ</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2218%22 fill=%22%230a0f1c%22/><rect x=%2222%22 y=%2258%22 width=%2256%22 height=%2214%22 rx=%223%22 fill=%22%2346d9c9%22/><rect x=%2230%22 y=%2242%22 width=%2240%22 height=%2214%22 rx=%223%22 fill=%22%232a9d90%22/><rect x=%2238%22 y=%2226%22 width=%2224%22 height=%2214%22 rx=%223%22 fill=%22%23eef1f6%22/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
 
+<div class="app">
+
+  <header class="app-header">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 100 100" aria-hidden="true">
+        <rect x="22" y="58" width="56" height="14" rx="3" class="mk-net"/>
+        <rect x="30" y="42" width="40" height="14" rx="3" class="mk-trans"/>
+        <rect x="38" y="26" width="24" height="14" rx="3" class="mk-app"/>
+      </svg>
+      <div>
+        <h1>PacketStack</h1>
+        <p class="subtitle">TCP/IP 階層＆パケットシミュレータ</p>
+      </div>
+    </div>
+  </header>
+
+  <nav class="mode-tabs" role="tablist" aria-label="学習モード">
+    <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="mode-build" data-mode="build">
+      <span class="tab-num">1</span>パケット組み立て
+    </button>
+    <button class="tab-btn" role="tab" aria-selected="false" aria-controls="mode-error" data-mode="error">
+      <span class="tab-num">2</span>エラー実験
+    </button>
+    <button class="tab-btn" role="tab" aria-selected="false" aria-controls="mode-trouble" data-mode="trouble">
+      <span class="tab-num">3</span>トラブル解析
+    </button>
+  </nav>
+
+  <main>
+
+    <!-- ================= MODE 1: BUILD ================= -->
+    <section id="mode-build" class="mode-panel active" role="tabpanel">
+      <p class="mode-lead">データが送信される前に、各階層のヘッダーが順番に巻きつけられていく様子を観察しよう。これを「カプセル化」と呼ぶ。</p>
+
+      <div class="workspace">
+        <div class="builder-col">
+          <div class="field-block">
+            <label class="field-label" for="build-message">1. 送るメッセージ</label>
+            <input type="text" id="build-message" class="text-input" value="こんにちは" maxlength="20">
+          </div>
+
+          <div class="field-block">
+            <p class="field-label">2. ヘッダーをクリックして組み込む <span class="field-hint">（上から順に付与）</span></p>
+            <div class="header-stack" id="build-stack">
+              <button type="button" class="header-block layer-app" data-layer="app" aria-pressed="false">
+                <span class="layer-tag">アプリ層</span>
+                <span class="layer-value">HTTP/1.1 GET /</span>
+                <span class="layer-state">タップで付与</span>
+              </button>
+              <button type="button" class="header-block layer-transport" data-layer="transport" aria-pressed="false">
+                <span class="layer-tag">トランスポート層</span>
+                <span class="layer-value">宛先ポート：80</span>
+                <span class="layer-state">タップで付与</span>
+              </button>
+              <button type="button" class="header-block layer-network" data-layer="network" aria-pressed="false">
+                <span class="layer-tag">ネットワーク層</span>
+                <span class="layer-value">宛先IP：192.168.10.20</span>
+                <span class="layer-state">タップで付与</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="field-block">
+            <p class="field-label">できあがったパケット</p>
+            <div class="capsule-stage" id="build-capsule">
+              <div class="capsule-layer capsule-data" data-layer="data">
+                <span class="capsule-label">データ</span>
+                <span class="capsule-content">こんにちは</span>
+              </div>
+            </div>
+          </div>
+
+          <button type="button" class="send-btn" id="build-send">送信を実行する</button>
+        </div>
+
+        <div class="route-col">
+          <p class="field-label">通信ルート</p>
+          <div class="route-track" id="build-route">
+            <div class="route-line"></div>
+            <div class="route-node" data-node="pc"><span class="node-icon">🖥</span><span>送信PC</span></div>
+            <div class="route-node" data-node="router"><span class="node-icon">📶</span><span>ルーター</span></div>
+            <div class="route-node" data-node="server"><span class="node-icon">🗄</span><span>Webサーバー</span></div>
+            <div class="route-packet" id="build-packet"></div>
+          </div>
+
+          <p class="field-label">通信ログ</p>
+          <div class="log-console" id="build-log" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= MODE 2: ERROR ================= -->
+    <section id="mode-error" class="mode-panel" role="tabpanel">
+      <p class="mode-lead">ヘッダーを1つ外してから送信し、どんなエラーが起こるか実験しよう。TLSの有無で盗聴の危険がどう変わるかも確認できる。</p>
+
+      <div class="workspace">
+        <div class="builder-col">
+          <div class="field-block">
+            <p class="field-label">1. ヘッダーをクリックして 付与／取り外し</p>
+            <div class="header-stack" id="error-stack">
+              <button type="button" class="header-block layer-app" data-layer="app" aria-pressed="true">
+                <span class="layer-tag">アプリ層</span>
+                <span class="layer-value">HTTP/1.1 GET /</span>
+                <span class="layer-state">付与中</span>
+              </button>
+              <button type="button" class="header-block layer-transport" data-layer="transport" aria-pressed="true">
+                <span class="layer-tag">トランスポート層</span>
+                <span class="layer-value">宛先ポート：80</span>
+                <span class="layer-state">付与中</span>
+              </button>
+              <button type="button" class="header-block layer-network" data-layer="network" aria-pressed="true">
+                <span class="layer-tag">ネットワーク層</span>
+                <span class="layer-value">宛先IP：192.168.10.20</span>
+                <span class="layer-state">付与中</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="field-block">
+            <label class="tls-toggle">
+              <input type="checkbox" id="error-tls" checked>
+              <span>HTTPS暗号化（TLS）を有効にする</span>
+            </label>
+          </div>
+
+          <div class="field-block">
+            <p class="field-label">通信経路の盗聴シミュレーション画面</p>
+            <div class="sniffer-view" id="error-sniffer">
+              <span class="sniffer-label">傍受した通信内容：</span>
+              <span class="sniffer-content" id="error-sniffer-content">--</span>
+            </div>
+          </div>
+
+          <button type="button" class="send-btn" id="error-send">送信を実行する</button>
+        </div>
+
+        <div class="route-col">
+          <p class="field-label">通信ルート</p>
+          <div class="route-track" id="error-route">
+            <div class="route-line"></div>
+            <div class="route-node" data-node="pc"><span class="node-icon">🖥</span><span>送信PC</span></div>
+            <div class="route-node" data-node="router"><span class="node-icon">📶</span><span>ルーター</span></div>
+            <div class="route-node" data-node="server"><span class="node-icon">🗄</span><span>Webサーバー</span></div>
+            <div class="route-packet" id="error-packet"></div>
+            <div class="eavesdrop-icon" id="error-eye">👁</div>
+          </div>
+
+          <p class="field-label">通信ログ</p>
+          <div class="log-console" id="error-log" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= MODE 3: TROUBLESHOOT ================= -->
+    <section id="mode-trouble" class="mode-panel" role="tabpanel">
+      <p class="mode-lead">サーバーから返ってきた通信失敗ログを読み取り、どの階層に問題があるかをグループで話し合って特定しよう。</p>
+
+      <div class="workspace">
+        <div class="builder-col">
+          <div class="field-block">
+            <p class="field-label">1. 通信失敗ログ</p>
+            <div class="log-card" id="trouble-log">Connection refused at port 80</div>
+            <button type="button" class="ghost-btn" id="trouble-next">別のログを見る</button>
+          </div>
+
+          <div class="field-block">
+            <p class="field-label">2. どの階層に問題があるか？</p>
+            <div class="quiz-options" id="trouble-options">
+              <button type="button" class="quiz-btn" data-layer="app">アプリ層</button>
+              <button type="button" class="quiz-btn" data-layer="transport">トランスポート層</button>
+              <button type="button" class="quiz-btn" data-layer="network">ネットワーク層</button>
+              <button type="button" class="quiz-btn" data-layer="physical">物理層</button>
+            </div>
+            <div class="feedback-box" id="trouble-feedback"></div>
+          </div>
+
+          <button type="button" class="send-btn" id="trouble-fix" disabled>設定を直して再送信する</button>
+        </div>
+
+        <div class="route-col">
+          <p class="field-label">通信ルート</p>
+          <div class="route-track" id="trouble-route">
+            <div class="route-line"></div>
+            <div class="route-node" data-node="pc"><span class="node-icon">🖥</span><span>送信PC</span></div>
+            <div class="route-node" data-node="router"><span class="node-icon">📶</span><span>ルーター</span></div>
+            <div class="route-node" data-node="server"><span class="node-icon">🗄</span><span>Webサーバー</span></div>
+            <div class="route-packet" id="trouble-packet"></div>
+          </div>
+
+          <p class="field-label">通信ログ</p>
+          <div class="log-console" id="trouble-console" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="app-footer">
+    <p>情報Ⅰ 学習教材「PacketStack」― カプセル化・階層化の仕組みを体験しよう</p>
+  </footer>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
